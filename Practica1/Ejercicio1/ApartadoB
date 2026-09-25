@@ -1,0 +1,187 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+
+
+void manejador(int signal){
+
+}
+
+int main(int argc, char *argv[]){
+    pid_t pidEjec;
+    pid_t pidA;
+    int segundos;
+
+    if (argc != 2){
+        printf("Error: se ha de introducir un único argumento");
+        exit(1);
+    }
+
+    segundos = atoi(argv[1]);
+
+    if (segundos <= 0){
+        printf("El numero de segundos debe ser mayor que 0\n");
+        exit(1);
+    }
+    //guardamos el PID de ejec, que nos servira luego para los mensajes
+    pidEjec = getpid();
+    printf("Soy el proceso ejec: mi pid es %d\n", getpid());
+
+    pidA = fork(); //creamos A
+
+    if (pidA == -1){
+        perror("Error en fork");
+        exit(1);
+    }
+
+    else if (pidA == 0){
+        pid_t pidA2;
+        pid_t pidB;
+
+        pidA2 = getpid(); //nos guardamos el PID de A para después
+
+        printf("Soy el proceso A: mi pid es %d. Mi padre es %d\n",getpid(), getppid());
+
+        signal(SIGUSR1, manejador);
+
+        pidB = fork();
+
+        if (pidB == -1){
+            perror("Error en fork");
+            exit(1);
+        }
+
+        else if (pidB == 0){
+    
+            pid_t pidX, pidY, pidZ;
+
+            printf("Soy el proceso B: mi pid es %d. Mi padre es %d. Mi abuelo es %d\n",
+            getpid(), getppid(), pidEjec);
+
+            signal(SIGUSR2, manejador);
+
+            pidX = fork();
+
+            if (pidX == -1){
+                perror("Error en fork");
+                exit(1);
+            }
+
+            else if (pidX == 0){
+                printf("Soy el proceso X: mi pid es %d. Mi padre es %d. Mi abuelo es %d. Mi bisabuelo es %d\n",
+                getpid(), getppid(), pidA2, pidEjec);
+
+                signal(SIGUSR2, manejador);
+                pause();
+
+                printf("Soy X (%d) y muero\n", getpid());
+
+                exit(0);
+            }
+
+            else{
+                pidY = fork();
+
+                if (pidY == -1){
+                    perror("Error en fork");
+                    exit(1);
+                }
+
+                else if (pidY == 0){
+                    printf("Soy el proceso Y: mi pid es %d. Mi padre es %d. Mi abuelo es %d. Mi bisabuelo es %d\n",
+                    getpid(), getppid(), pidA2, pidEjec);
+
+                    signal(SIGUSR2, manejador);
+                    pause();
+
+                    printf("Soy Y (%d) y muero\n", getpid());
+
+                    exit(0);
+                }
+
+                else{
+                    pidZ = fork();
+
+                    if (pidZ == -1){
+                        perror("Error en fork");
+                        exit(1);
+                    }
+
+                    else if (pidZ == 0){
+                        
+                        printf("Soy el proceso Z: mi pid es %d. Mi padre es %d. Mi abuelo es %d.Mi bisabuelo es %d\n",
+                            getpid(), getppid(),pidA2, pidEjec);
+
+                        signal(SIGALRM, manejador);
+                        signal(SIGUSR2, manejador);
+
+                        alarm(segundos);
+                        pause();
+                        kill(pidA2, SIGUSR1);
+                        pause();
+
+                        printf("Soy Z (%d) y muero\n", getpid());
+
+                        exit(0);
+                    }
+
+                    else{
+                        pause();
+
+                        kill(pidZ, SIGUSR2);
+                        wait(NULL);
+
+                        kill(pidY, SIGUSR2);
+                        wait(NULL);
+
+                        kill(pidX, SIGUSR2);
+                        wait(NULL);
+
+                        printf("Soy B (%d) y muero\n", getpid());
+
+                        exit(0);
+                    }
+                }
+            }
+        }
+
+        else{
+            pid_t pidAux;
+            pause();
+
+            pidAux = fork();
+
+            if (pidAux == -1){
+                perror("Error en fork");
+                exit(1);
+            }
+
+            else if (pidAux == 0){
+                execlp("pstree", "pstree", NULL);
+                perror("Error en exec");
+                exit(1);
+            }
+
+            else{
+                wait(NULL);
+
+                kill(pidB, SIGUSR2);
+                wait(NULL);
+
+                printf("Soy A (%d) y muero\n", getpid());
+
+                exit(0);
+            }
+        }
+    }
+
+    else{
+        wait(NULL);
+
+        printf("Soy ejec (%d) y muero\n", getpid());
+    }
+
+    return 0;
+}
