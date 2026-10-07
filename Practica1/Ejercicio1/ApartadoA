@@ -50,8 +50,7 @@ int main(int argc, char *argv[]){
                 printf("Soy p%d%d, mi PID es %d y mi padre es %d\n",i, j, getpid(), getppid());
             }
             // para el ultimo proceso de cada columan
-            sleep(20);
-            exit(0);
+            pause();
         }
     }
     for (j = 1; j <= y; j++){ // 'malla' espera a todos los procesos de la primera fila
