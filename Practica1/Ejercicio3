@@ -1,0 +1,149 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+void validar_argumentos(int argc, char *argv[]) {
+    if (argc != 3) {
+        printf("Error: número de argumentos inválido\n");
+        exit(1);
+    }
+
+    if (atoi(argv[1]) <= 0 || atoi(argv[2]) <= 0) {
+        printf("Los valores de x e y deben ser mayores que 0\n");
+        exit(1);
+    }
+}
+
+void crear_hijos_finales(int x, int y, pid_t *memoria) {
+    int i, j;
+    pid_t pid;
+
+    for (i = 0; i < y; i++) {
+        pid = fork();
+
+        if (pid == -1) {
+            perror("Error en fork");
+            exit(1);
+        }
+
+        if (pid == 0) {
+            printf("Soy el subhijo %d, mis padres son: ", getpid());
+
+            for (j = 0; j < x; j++) {
+                printf("%d", memoria[j]);
+
+                if (j < x - 1) {
+                    printf(", ");
+                }
+            }
+
+            printf("\n");
+            shmdt(memoria);
+            exit(0);
+        }
+        else {
+            memoria[x + i] = pid;
+        }
+    }
+
+    for (i = 0; i < y; i++) {
+        wait(NULL);
+    }
+}
+
+void crear_cadena(int x, int y, int posicion, pid_t *memoria) {
+    pid_t pid;
+
+    if (posicion == x) {
+        crear_hijos_finales(x, y, memoria);
+    }
+    else {
+        pid = fork();
+
+        if (pid == -1) {
+            perror("Error en fork");
+            exit(1);
+        }
+
+        if (pid == 0) {
+            memoria[posicion] = getpid();
+            crear_cadena(x, y, posicion + 1, memoria);
+            shmdt(memoria);
+            exit(0);
+        }
+        else {
+            wait(NULL);
+        }
+    }
+}
+
+void mostrar_superpadre(int x, int y, pid_t *memoria) {
+    int i;
+
+    printf("Soy el superpadre (%d): mis hijos finales son: ", getpid());
+
+    for (i = 0; i < y; i++) {
+        printf("%d", memoria[x + i]);
+
+        if (i < y - 1) {
+            printf(", ");
+        }
+    }
+
+    printf("\n");
+}
+
+int main(int argc, char *argv[]) {
+    int x, y;
+    int idMemoria;
+    pid_t *memoria;
+    pid_t pid;
+
+    validar_argumentos(argc, argv);
+
+    x = atoi(argv[1]);
+    y = atoi(argv[2]);
+
+    idMemoria = shmget(IPC_PRIVATE, (x + y) * sizeof(pid_t), IPC_CREAT | 0600);
+
+    if (idMemoria == -1) {
+        perror("Error al crear memoria compartida");
+        exit(1);
+    }
+
+    memoria = (pid_t *) shmat(idMemoria, NULL, 0);
+
+    if (memoria == (void *) -1) {
+        perror("Error al vincular memoria compartida");
+        shmctl(idMemoria, IPC_RMID, NULL);
+        exit(1);
+    }
+
+    pid = fork();
+
+    if (pid == -1) {
+        perror("Error en fork");
+        shmdt(memoria);
+        shmctl(idMemoria, IPC_RMID, NULL);
+        exit(1);
+    }
+
+    if (pid == 0) {
+        memoria[0] = getpid();
+        crear_cadena(x, y, 1, memoria);
+        shmdt(memoria);
+        exit(0);
+    }
+    else {
+        wait(NULL);
+        mostrar_superpadre(x, y, memoria);
+        shmdt(memoria);
+        shmctl(idMemoria, IPC_RMID, NULL);
+    }
+
+    return 0;
+}
