@@ -3,57 +3,76 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-int main(int argc, char *argv[]){
-    int x, y, i, j;
-    pid_t pid;
-
-    if (argc != 3){
+void validar_argumentos(int argc, char *argv[]) {
+    if (argc != 3) {
         printf("Error: No se han introducido los argumentos correctamente\n");
         exit(1);
     }
 
-    x = atoi(argv[1]);
-    y = atoi(argv[2]);
-
-    if (x <= 0 || y <= 0){
+    if (atoi(argv[1]) <= 0 || atoi(argv[2]) <= 0) {
         printf("Error: No se han introducido los argumentos correctamente, deben de ser mayores que cero\n");
         exit(1);
     }
+}
 
-    printf("Soy malla, mi PID es %d\n", getpid());
+void crear_columna(int x, int j) {
+    int i;
+    pid_t pid;
 
-    for (j = 1; j <= y; j++){ // 'malla' genera los procesos de la primera fila
+    for (i = 2; i <= x; i++) {
         pid = fork();
 
-        if (pid < 0){
+        if (pid < 0) {
             perror("Error en fork");
             exit(1);
         }
 
-        if (pid == 0){
-            printf("Soy p%d%d, mi PID es %d y mi padre es %d\n",1, j, getpid(), getppid());
+        if (pid > 0) {
+            wait(NULL);
+            exit(0);
+        }
 
-            // ahora el hijo continua con la columna verticalmente 
-            for (i = 2; i <= x; i++){
-                pid = fork();
+        printf("Soy p%d%d, mi PID es %d y mi padre es %d\n", i, j, getpid(), getppid());
+    }
 
-                if (pid < 0){
-                    perror("Error en fork");
-                    exit(1);
-                }
+    pause();
+}
 
-                if (pid > 0){ // el padre espera
-                    wait(NULL);
-                    exit(0);
-                }
-                // el hijo continua
-                printf("Soy p%d%d, mi PID es %d y mi padre es %d\n",i, j, getpid(), getppid());
-            }
-            // para el ultimo proceso de cada columan
-            pause();
+void crear_primera_fila(int x, int y) {
+    int j;
+    pid_t pid;
+
+    for (j = 1; j <= y; j++) {
+        pid = fork();
+
+        if (pid < 0) {
+            perror("Error en fork");
+            exit(1);
+        }
+
+        if (pid == 0) {
+            printf("Soy p%d%d, mi PID es %d y mi padre es %d\n", 1, j, getpid(), getppid());
+
+            crear_columna(x, j);
+
+            exit(0);
         }
     }
-    for (j = 1; j <= y; j++){ // 'malla' espera a todos los procesos de la primera fila
+}
+
+int main(int argc, char *argv[]) {
+    int x, y, j;
+
+    validar_argumentos(argc, argv);
+
+    x = atoi(argv[1]);
+    y = atoi(argv[2]);
+
+    printf("Soy malla, mi PID es %d\n", getpid());
+
+    crear_primera_fila(x, y);
+
+    for (j = 1; j <= y; j++) {
         wait(NULL);
     }
 
