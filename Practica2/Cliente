@@ -11,7 +11,7 @@
 
 void validar_argumentos(int argc) {
     if (argc != 2) {
-        printf("Uso: ./Cliente IP_Servidor\n");
+        printf("Error: Argumentos incorrectos\n");
         exit(1);
     }
 }
