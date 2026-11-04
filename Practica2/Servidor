@@ -1,1 +1,163 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/wait.h>
 
+#define PUERTO 9999
+#define TAM 4096
+
+int crear_servidor() {
+    int servidor;
+    struct sockaddr_in direccion = {0};
+
+    servidor = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (servidor == -1) {
+        perror("Error al crear el socket");
+        exit(1);
+    }
+
+    direccion.sin_family = AF_INET;
+    direccion.sin_port = htons(PUERTO);
+    direccion.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (bind(servidor, (struct sockaddr *)&direccion,
+             sizeof(direccion)) == -1) {
+        perror("Error en bind");
+        close(servidor);
+        exit(1);
+    }
+
+    if (listen(servidor, 5) == -1) {
+        perror("Error en listen");
+        close(servidor);
+        exit(1);
+    }
+
+    return servidor;
+}
+
+void recoger_hijos(int senal) {
+    (void)senal;
+
+    while (waitpid(-1, NULL, WNOHANG) > 0) {
+    }
+}
+
+int enviar_datos(int cliente, char buffer[], int tam) {
+    int enviados = 0;
+    int resultado;
+    int correcto = 1;
+
+    while (enviados < tam && correcto == 1) {
+        resultado = write(cliente, buffer + enviados,
+                          tam - enviados);
+
+        if (resultado <= 0) {
+            perror("Error al enviar los datos");
+            correcto = 0;
+        } else {
+            enviados += resultado;
+        }
+    }
+
+    return correcto;
+}
+
+int transferir_archivo(int cliente) {
+    int archivo;
+    int leidos;
+    int correcto = 1;
+    char buffer[TAM];
+
+    archivo = open("Google.html", O_RDONLY);
+
+    if (archivo == -1) {
+        perror("Error al abrir Google.html");
+        correcto = 0;
+    } else {
+        leidos = read(archivo, buffer, TAM);
+
+        while (leidos > 0 && correcto == 1) {
+            correcto = enviar_datos(cliente, buffer, leidos);
+
+            if (correcto == 1) {
+                leidos = read(archivo, buffer, TAM);
+            }
+        }
+
+        if (correcto == 1 && leidos == -1) {
+            perror("Error al leer el archivo");
+            correcto = 0;
+        }
+
+        close(archivo);
+    }
+
+    return correcto;
+}
+
+void atender_cliente(int cliente, int servidor) {
+    int correcto;
+
+    close(servidor);
+
+    correcto = transferir_archivo(cliente);
+
+    close(cliente);
+
+    if (correcto == 0) {
+        exit(1);
+    }
+
+    exit(0);
+}
+
+void crear_hijo(int cliente, int servidor) {
+    pid_t pid;
+
+    pid = fork();
+
+    if (pid == -1) {
+        perror("Error al crear el hijo");
+    } else if (pid == 0) {
+        atender_cliente(cliente, servidor);
+    }
+
+    close(cliente);
+}
+
+void esperar_clientes(int servidor) {
+    int cliente;
+
+    while (1) {
+        cliente = accept(servidor, NULL, NULL);
+
+        if (cliente == -1) {
+            perror("Error en accept");
+        } else {
+            crear_hijo(cliente, servidor);
+        }
+    }
+}
+
+int main() {
+    int servidor;
+
+    signal(SIGCHLD, recoger_hijos);
+    signal(SIGPIPE, SIG_IGN);
+
+    servidor = crear_servidor();
+
+    printf("Servidor escuchando en el puerto %d\n", PUERTO);
+    fflush(stdout);
+
+    esperar_clientes(servidor);
+
+    return 0;
+}
