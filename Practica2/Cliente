@@ -31,8 +31,7 @@ int conectar_servidor(char *ip) {
     direccion.sin_port = htons(PUERTO);
     direccion.sin_addr.s_addr = inet_addr(ip);
 
-    if (connect(cliente, (struct sockaddr *)&direccion,
-                sizeof(direccion)) == -1) {
+    if (connect(cliente, (struct sockaddr *)&direccion, sizeof(direccion)) == -1) {
         perror("Error al conectar con el servidor");
         close(cliente);
         exit(1);
@@ -47,8 +46,7 @@ int mostrar_datos(char buffer[], int tam) {
     int correcto = 1;
 
     while (escritos < tam && correcto == 1) {
-        resultado = write(STDOUT_FILENO, buffer + escritos,
-                          tam - escritos);
+        resultado = write(STDOUT_FILENO, buffer + escritos, tam - escritos);
 
         if (resultado <= 0) {
             perror("Error al mostrar los datos");
