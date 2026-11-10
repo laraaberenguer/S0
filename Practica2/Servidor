@@ -26,8 +26,7 @@ int crear_servidor() {
     direccion.sin_port = htons(PUERTO);
     direccion.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(servidor, (struct sockaddr *)&direccion,
-             sizeof(direccion)) == -1) {
+    if (bind(servidor, (struct sockaddr *)&direccion, sizeof(direccion)) == -1) {
         perror("Error en bind");
         close(servidor);
         exit(1);
@@ -55,8 +54,7 @@ int enviar_datos(int cliente, char buffer[], int tam) {
     int correcto = 1;
 
     while (enviados < tam && correcto == 1) {
-        resultado = write(cliente, buffer + enviados,
-                          tam - enviados);
+        resultado = write(cliente, buffer + enviados, tam - enviados);
 
         if (resultado <= 0) {
             perror("Error al enviar los datos");
