@@ -1,0 +1,45 @@
+const int N = 5;
+
+int buffer[N];
+int entrada = 0;
+int salida = 0;
+int elemento = 1;
+
+binarysem s = 1;
+semaphore n = 0;
+semaphore e = N;
+
+void productor() {
+    int i;
+    for (i = 0; i < 10; i++) {
+        wait(e);
+        wait(s);
+        buffer[entrada] = elemento;
+        cout << "Productor introduce: " << elemento << endl;
+        entrada = (entrada + 1) % N;
+        elemento++;
+        signal(s);
+        signal(n);
+    }
+}
+
+void consumidor() {
+    int i;
+    int valor;
+    for (i = 0; i < 10; i++) {
+        wait(n);
+        wait(s);
+        valor = buffer[salida];
+        cout << "Consumidor retira: " << valor << endl;
+        salida = (salida + 1) % N;
+        signal(s);
+        signal(e);
+    }
+}
+
+void main() {
+    cobegin {
+        productor();
+        consumidor();
+    }
+}
